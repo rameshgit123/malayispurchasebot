@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="robots" content="noindex">
+
+    <title>Add Items</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="//netdna.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css" rel="stylesheet" id="bootstrap-css">
+    <style type="text/css">
+.table > tbody > tr > td, .table > tfoot > tr > td {
+            vertical-align: middle;
+        }
+
+       
+
+@media screen and (max-width: 600px) {
+            table#cart tbody td .form-control {
+                width: 20%;
+                display: inline !important;
+            }
+
+            .actions .btn {
+                width: 36%;
+                margin: 1.5em 0;
+            }
+
+            .actions .btn-info {
+                float: left;
+            }
+
+            .actions .btn-danger {
+                float: right;
+            }
+
+            table#cart thead {
+                display: none;
+            }
+
+            table#cart tbody td {
+                display: block;
+                padding: .6rem;
+                min-width: 320px;
+            }
+
+          
+
+            table#cart tbody td:before {
+                content: attr(data-th);
+                font-weight: bold;
+                display: inline-block;
+                width: 8rem;
+            }
+
+
+
+            table#cart tfoot td {
+                display: block;
+            }
+
+                table#cart tfoot td .btn {
+                    display: block;
+                }
+        }
+  </style>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+    <script src="//netdna.bootstrapcdn.com/bootstrap/3.2.0/js/bootstrap.min.js"></script>
+    <script type="text/javascript">
+
+        (function (d, s, id) {
+            var js, fjs = d.getElementsByTagName(s)[0];
+            if (d.getElementById(id)) { return; }
+            js = d.createElement(s); js.id = id;
+            js.src = "//connect.facebook.com/en_US/messenger.Extensions.js";
+            fjs.parentNode.insertBefore(js, fjs);
+        }(document, 'script', 'Messenger'));
+
+        window.extAsyncInit = function () {
+            MessengerExtensions.getUserID(function success(uids) {
+                var psid = uids.psid;
+                $("#Userid").html(psid);
+            }, function error(err) {
+                // alert(err);
+            });
+
+        };
+
+        $(document).ready(function () {
+            $(".dropdown-menu li a").click(function () {
+                $(".btn:first-child").text($(this).text());
+                $(".btn:first-child").val($(this).text());
+
+            });
+
+        });
+        function addrows() {
+
+            var $tableBody = $('#cart').find("tbody"),
+     $trLast = $tableBody.find("tr:last"),
+     $trNew = $trLast.clone();
+            $trLast.after($trNew);
+            $(".dropdown-menu li a").click(function () {
+                $(".btn:first-child").text($(this).text());
+                $(".btn:first-child").val($(this).text());
+
+            })
+
+        }
+
+        function deleterows(obj) {
+            $(obj).parent().parent().remove();
+        }
+
+        function closewindow() {
+
+            var dataitems = "";
+            var i = 0;
+            $('#cart').find("tbody").find('tr').each(function () {
+                i++;
+                dataitems += $(this).find('td:eq(0)').find('select').val() + "`" + $(this).find('td:eq(1)').find('select').val() + "`" + $(this).find('td:eq(2)').find('input').val() + "^";
+
+                if (i == $('#cart').find("tbody").find('tr').length) {
+                    $.ajax({
+                        type: 'get',
+                        url: 'https://malayisbot.herokuapp.com/sendmessage?senderid=' + getParameterByName('id') + '&items=' + dataitems + '',
+                        success: function (data) {
+                            // use data
+				MessengerExtensions.requestCloseBrowser(function success() {
+  
+      }, function error(err) {
+  
+      }); 
+                        },
+                        timeout: 1000,
+    error: function(jqXHR, textStatus, errorThrown) {
+	    MessengerExtensions.requestCloseBrowser(function success() {
+  
+      }, function error(err) {
+  
+      });
+	     
+    }
+                    });
+                }
+            });
+        }
+
+        function getParameterByName(name, url) {
+            if (!url) {
+                url = window.location.href;
+            }
+            name = name.replace(/[\[\]]/g, "\\$&");
+            var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
+                results = regex.exec(url);
+            if (!results) return null;
+            if (!results[2]) return '';
+            return decodeURIComponent(results[2].replace(/\+/g, " "));
+        }
+    </script>
+</head>
+<body>
+    <link href="//maxcdn.bootstrapcdn.com/font-awesome/4.1.0/css/font-awesome.min.css" rel="stylesheet">
+
+    <div class="container">
+        <br />
+        <br />
+
+        <h1 style="font-family: Arial; font-size: 18px; color: #07C">Please provide all the cigarette brands  you bought with their pack size & quantity.</h1>
+        <div style="color: blueviolet; font-size: 18px; font-weight: bold">USER ID : <span style="color: blue; font-size: 18px; font-weight: bold" id="Userid"></span></div>
+        <table id="cart" class="table table-hover table-condensed">
+            <thead>
+                <tr>
+                    <th style="width: 30%">Product</th>
+                    <th style="width: 30%">Pack Size</th>
+                    <!-- <th style="width: 10%">Price</th>-->
+                    <th style="width: 20%">Quantity</th>
+                    <!--  <th style="width: 22%" class="text-center">Subtotal</th>-->
+                    <th style="width: 20%"></th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td data-th="Product">
+                        <div class="dropdown">
+                            <select>
+                                <option value="1">9th Century</option>
+                                <option value="2">A380</option>
+                                <option value="3">Benson & Hedges</option>
+                                <option value="4">Bosston</option>
+                                <option value="5">Camel</option>
+                                <option value="6">Capital</option>
+                                <option value="7">Chesterfield</option>
+                                <option value="8">De'Leaf</option>
+                                <option value="9">Dunhill</option>
+                                <option value="10">International Peter Stuyvesant</option>
+                                <option value="11">Kent</option>
+                                <option value="12">L&M</option>
+                                <option value="13">Lucky Strike</option>
+                                <option value="14">Manchester</option>
+                                <option value="15">Marlboro</option>
+                                <option value="16">Mevius</option>
+                                <option value="17">Mone</option>
+                                <option value="18">Pall Mall</option>
+                                <option value="19">Peter Stuyvesant</option>
+                                <option value="20">Promax</option>
+                                <option value="21">Saat</option>
+                                <option value="22">Sampoerna A</option>
+                                <option value="23">Soho</option>
+                                <option value="24">Willson</option>
+                                <option value="25">Winston</option>
+
+                            </select>
+
+
+                        </div>
+                    </td>
+                    <td data-th="Pack-size">
+                        <div class="dropdown">
+
+                            <select>                                
+                                <option value="20">20</option>                                
+                            </select>
+                        </div>
+                    </td>
+
+                    <!-- <td data-th="Price">$1.99</td>-->
+                    <td data-th="Quantity">
+                        <br />
+                        <input type="number" class="form-control text-center" value="1">
+                    </td>
+                    <!--   <td data-th="Subtotal" class="text-center">1.99</td>-->
+                    <td class="actions" data-th="">
+                        <button class="btn btn-info btn-sm" onclick="addrows()"><i class="fa fa-plus"></i></button>
+                        <button class="btn btn-danger btn-sm" onclick="deleterows(this)"><i class="fa fa-trash-o"></i></button>
+                    </td>
+                </tr>
+            </tbody>
+            <tfoot>
+                <tr class="visible-xs">
+                    <td class="text-center"><strong></strong></td>
+                </tr>
+                <tr>
+                    <td colspan="2" class="hidden-xs"></td>
+                    <td class="hidden-xs text-center"><strong></strong></td>
+                    <td><a href="#" class="btn btn-success btn-block" onclick="closewindow()">Checkout <i class="fa fa-angle-right"></i></a></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+    <script type="text/javascript">
+	
+    </script>
+</body>
+</html>

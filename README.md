@@ -1,2 +1,1 @@
-# malayispurchasebot
-malayispurchasebot
+# Malayis-Bot
