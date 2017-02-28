@@ -332,6 +332,7 @@ function receivedPostback(event) {
     // let them know it was successful
     if (payload == "USER_DEFINED_PAYLOAD") {
 
+        //writelog(id, "Select Your Language", "BOT");
         var messageData = {
             recipient: {
                 id: senderID
@@ -365,7 +366,7 @@ function receivedPostback(event) {
             }
         };
         callSendAPI(messageData);
-        writelog(id, "Select Your Language", "BOT");
+       
     }
     else if (payload == "Melayu") {
         checkstatus(senderID, "Melayu_lang", "text", "");
