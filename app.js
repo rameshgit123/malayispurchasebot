@@ -513,8 +513,8 @@ function sendwebview(id, lang) {
     var title = "Submit Your Products";
     var btntitle = "Add Items";
     if (lang == "Melayu") {
-        sendTextMessage(id, "Sila berikan semua jenama rokok yang telah anda beli dengan saiz pek & kuantiti (unit)");
-        writelog(id, "Sila berikan semua jenama rokok yang telah anda beli dengan saiz pek & kuantiti (unit)", "BOT")
+        sendTextMessage(id, "Sila nyatakan jenama rokok yang telah anda beli dengan saiz pek & kuantiti (unit) ");
+        writelog(id, "Sila nyatakan jenama rokok yang telah anda beli dengan saiz pek & kuantiti (unit) ", "BOT")
         btntitle = "Tambah";
         title = "Hantar Produk Anda";
     }
@@ -734,8 +734,8 @@ function checkstatus(id, text, type, files) {
 
                     else if (jsonres.status == "Purchased_YES") {
                         if (jsonres.message[0].lang == "Melayu") {
-                            Q2(id, "Adakah anda mempunyai invois untuk rokok dibeli minggu ini?", "Ya", "Tiada");
-                            writelog(id, "Adakah anda mempunyai invois untuk rokok dibeli minggu ini?", "BOT");
+                            Q2(id, "Adakah anda mempunyai invois rokok tersebut?", "Ya", "Tiada");
+                            writelog(id, "Adakah anda mempunyai invois rokok tersebut?", "BOT");
 
                         }
                         else if (jsonres.message[0].lang == "Mandarin") {
@@ -798,8 +798,8 @@ function checkstatus(id, text, type, files) {
                     else if (jsonres.status == "Q5") {
 
                         if (jsonres.message[0].lang == "Melayu") {
-                            Q5(id, "Adakah anda membeli mana-mana rokok minggu ini yang mana anda tidak mempunyai invois?", "Ya", "Tiada");
-                            writelog(id, "Adakah anda membeli mana-mana rokok minggu ini yang mana anda tidak mempunyai invois?", "BOT");
+                            Q5(id, "Didalam pembelian tersebut, adakah diantaranya tiada invois?", "Ya", "Tiada");
+                            writelog(id, "Didalam pembelian tersebut, adakah diantaranya tiada invois?", "BOT");
                         }
                         else if (jsonres.message[0].lang == "Mandarin") {
                             Q5(id, "你是否购买了本周没有发票的香烟？", "是", "没有");
@@ -815,8 +815,8 @@ function checkstatus(id, text, type, files) {
                     else if (jsonres.status == "Loopitems") {
 
                         if (jsonres.message[0].lang == "Melayu") {
-                            sendTextMessage(id, "Sila ambil gambar invois dan hantar");
-                            writelog(id, "Sila ambil gambar invois dan hantar", "BOT");
+                            sendTextMessage(id, "Sila ambil gambar invois dan hantar.");
+                            writelog(id, "Sila ambil gambar invois dan hantar.", "BOT");
                         }
                         else if (jsonres.message[0].lang == "Mandarin") {
                             sendTextMessage(id, "请拍下发票的照片并发送");
