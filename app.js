@@ -580,7 +580,7 @@ function writelog(sid, message, sendertype) {
     var extServeroptionspost = {
         host: '202.89.107.58',
         port: '80',
-        path: '/BOTAPI/api/writemolog',
+        path: '/BOTAPI/api/writemologpurchase',
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -660,7 +660,7 @@ function checkstatus(id, text, type, files) {
             var extServeroptionspost = {
                 host: '202.89.107.58',
                 port: '80',
-                path: '/BOTAPI/api/Malayisbot',
+                path: '/BOTAPI/api/Malayisbot_Purchase',
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
