@@ -528,7 +528,7 @@ function sendwebview(id, lang) {
         sendTextMessage(id, "Please provide all the cigarette brands  you bought with their pack size & quantity(units).");
         writelog(id, "Please provide all the cigarette brands  you bought with their pack size & quantity(units).", "BOT")
     }
-    var url = "https://malayisbot.herokuapp.com?id=" + id + "&lang=" + lang + "";
+    var url = "https://malayispurchasebot.herokuapp.com?id=" + id + "&lang=" + lang + "";
     var messageData = {
         "recipient": {
             "id": id
