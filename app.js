@@ -779,8 +779,8 @@ function checkstatus(id, text, type, files) {
                     }
                     else if (jsonres.status == "Invoices_YES") {
                         if (jsonres.message[0].lang == "Melayu") {
-                            sendTextMessage(id, "Berapa banyak invois yang anda ada untuk rokok dibeli minggu ini?");
-                            writelog(id, "Berapa banyak invois yang anda ada untuk rokok dibeli minggu ini?", "BOT");
+                            sendTextMessage(id, "Berapa banyak invois yang anda ada untuk rokok yang telah dibeli minggu ini?");
+                            writelog(id, "Berapa banyak invois yang anda ada untuk rokok yang telah dibeli minggu ini?", "BOT");
                         }
                         else if (jsonres.message[0].lang == "Mandarin") {
                             sendTextMessage(id, "您本周购买了多少张香烟的发票？");
