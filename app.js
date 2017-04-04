@@ -10,32 +10,24 @@
 /* jshint node: true, devel: true */
 'use strict';
 
-const
+const 
   bodyParser = require('body-parser'),
   config = require('config'),
   crypto = require('crypto'),
   express = require('express'),
-  https = require('https'),
+  https = require('https'),  
   request = require('request');
-//facebook sdk for get user inforamtion.
+var app = express();
+
 var sdk = require('facebook-node-sdk');
 var fb = new sdk({
     appId: config.get('AppId'),
     secret: config.get('appSecret')
 }).setAccessToken(config.get('pageAccessToken'));
 
-var app = express();
 app.set('port', process.env.PORT || 5000);
-app.set('view engine', 'ejs');
 app.use(bodyParser.json({ verify: verifyRequestSignature }));
 app.use(express.static('public'));
-var allowCrossDomain = function (req, res, next) {
-    res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Headers", "X-Requested-With");
-    next();
-}
-app.use(allowCrossDomain);
-
 
 /*
  * Be sure to setup your config values before running this code. You can 
@@ -44,7 +36,7 @@ app.use(allowCrossDomain);
  */
 
 // App Secret can be retrieved from the App Dashboard
-const APP_SECRET = (process.env.MESSENGER_APP_SECRET) ?
+const APP_SECRET = (process.env.MESSENGER_APP_SECRET) ? 
   process.env.MESSENGER_APP_SECRET :
   config.get('appSecret');
 
@@ -58,37 +50,54 @@ const PAGE_ACCESS_TOKEN = (process.env.MESSENGER_PAGE_ACCESS_TOKEN) ?
   (process.env.MESSENGER_PAGE_ACCESS_TOKEN) :
   config.get('pageAccessToken');
 
-// URL where the app is running (include protocol). Used to point to scripts and 
-// assets located at this address. 
-const SERVER_URL = (process.env.SERVER_URL) ?
-  (process.env.SERVER_URL) :
-  config.get('serverURL');
-
-if (!(APP_SECRET && VALIDATION_TOKEN && PAGE_ACCESS_TOKEN && SERVER_URL)) {
+if (!(APP_SECRET && VALIDATION_TOKEN && PAGE_ACCESS_TOKEN)) {
     console.error("Missing config values");
     process.exit(1);
 }
 
 
+
+
+//for send messages to users
 app.get('/sendmessage', function (req, res) {
-    //sendTextMessage(req.query['senderid'], "Data submited");
-    checkstatus(req.query['senderid'], "Webview_Items", req.query['items'], "");
-    res.sendStatus(200);
+    res.send('Facebook Messanger Bot...!');
+    if (req.query['senderid'] != null) {
+        sendTextMessage(req.query['senderid'], "Good Morning!!!");
+        var messageData = {
+            "attachment": {
+                "type": "template",
+                "payload": {
+                    "template_type": "generic",
+                    "elements": [{
+                        "title": "Do you have any visicooler/fridge/chiller like above?",
+                        "subtitle": "",
+                        "image_url": "https://self-sourcing-bot.herokuapp.com/refridge.jpg",
+                        "buttons": [{
+                            "type": "postback",
+                            "title": "Yes",
+                            "payload": "Q1YES"
+                        }, {
+                            "type": "postback",
+                            "title": "No",
+                            "payload": "Q1NO"
+                        }]
+                    }]
+                }
+            }
+        };
+        setTimeout(function () {
+            sendGenericMessage(req.query['senderid'], messageData);
+            writelog(req.query['senderid'], "Do you have any visicooler/fridge/chiller like above?", "BOT");
+        }, 300);
+    }
 });
 
-
-app.get('/Runtask', function (req, res) {
-
-    if (req.query['lang'] == "Melayu") {
-        Q1(req.query['senderid'], "Adakah anda membeli mana-mana Rokok minggu ini?", "Ya", "Tiada");
+//send custom messages to users
+//for send messages to users
+app.get('/sendcustommessage', function (req, res) {  
+    if (req.query['senderid'] != null) {
+        sendTextMessage(req.query['senderid'], req.query['msg']);
     }
-    else if (req.query['lang'] == "Mandarin") {
-        Q1(req.query['senderid'], "你本周购买了任何香烟吗？", "是", "没有");
-    }
-    else {
-        Q1(req.query['senderid'], "Have you purchased any Cigarettes this week?", "Yes", "No");
-    }
-    res.sendStatus(200);
 });
 
 /*
@@ -96,15 +105,15 @@ app.get('/Runtask', function (req, res) {
  * setup is the same token used here.
  *
  */
-app.get('/webhook', function (req, res) {
+app.get('/webhook', function(req, res) {
     if (req.query['hub.mode'] === 'subscribe' &&
         req.query['hub.verify_token'] === VALIDATION_TOKEN) {
         console.log("Validating webhook");
         res.status(200).send(req.query['hub.challenge']);
     } else {
         console.error("Failed validation. Make sure the validation tokens match.");
-        res.sendStatus(403);
-    }
+        res.sendStatus(403);          
+    }  
 });
 
 
@@ -112,22 +121,23 @@ app.get('/webhook', function (req, res) {
  * All callbacks for Messenger are POST-ed. They will be sent to the same
  * webhook. Be sure to subscribe your app to your page to receive callbacks
  * for your page. 
- * https://developers.facebook.com/docs/messenger-platform/product-overview/setup#subscribe_app
+ * https://developers.facebook.com/docs/messenger-platform/implementation#subscribe_app_pages
  *
  */
 app.post('/webhook', function (req, res) {
+
     var data = req.body;
 
     // Make sure this is a page subscription
     if (data.object == 'page') {
         // Iterate over each entry
         // There may be multiple if batched
-        data.entry.forEach(function (pageEntry) {
+        data.entry.forEach(function(pageEntry) {
             var pageID = pageEntry.id;
             var timeOfEvent = pageEntry.time;
 
             // Iterate over each messaging event
-            pageEntry.messaging.forEach(function (messagingEvent) {
+            pageEntry.messaging.forEach(function(messagingEvent) {
                 if (messagingEvent.optin) {
                     receivedAuthentication(messagingEvent);
                 } else if (messagingEvent.message) {
@@ -136,10 +146,6 @@ app.post('/webhook', function (req, res) {
                     receivedDeliveryConfirmation(messagingEvent);
                 } else if (messagingEvent.postback) {
                     receivedPostback(messagingEvent);
-                } else if (messagingEvent.read) {
-                    receivedMessageRead(messagingEvent);
-                } else if (messagingEvent.account_linking) {
-                    receivedAccountLink(messagingEvent);
                 } else {
                     console.log("Webhook received unknown messagingEvent: ", messagingEvent);
                 }
@@ -152,29 +158,6 @@ app.post('/webhook', function (req, res) {
         // successfully received the callback. Otherwise, the request will time out.
         res.sendStatus(200);
     }
-});
-
-/*
- * This path is used for account linking. The account linking call-to-action
- * (sendAccountLinking) is pointed to this URL. 
- * 
- */
-app.get('/authorize', function (req, res) {
-    var accountLinkingToken = req.query.account_linking_token;
-    var redirectURI = req.query.redirect_uri;
-
-    // Authorization Code should be generated per user by the developer. This will 
-    // be passed to the Account Linking callback.
-    var authCode = "1234567890";
-
-    // Redirect users to this URI on successful login
-    var redirectURISuccess = redirectURI + "&authorization_code=" + authCode;
-
-    res.render('authorize', {
-        accountLinkingToken: accountLinkingToken,
-        redirectURI: redirectURI,
-        redirectURISuccess: redirectURISuccess
-    });
 });
 
 /*
@@ -212,7 +195,7 @@ function verifyRequestSignature(req, res, buf) {
  *
  * The value for 'optin.ref' is defined in the entry point. For the "Send to 
  * Messenger" plugin, it is the 'data-ref' field. Read more at 
- * https://developers.facebook.com/docs/messenger-platform/webhook-reference/authentication
+ * https://developers.facebook.com/docs/messenger-platform/webhook-reference#auth
  *
  */
 function receivedAuthentication(event) {
@@ -228,7 +211,7 @@ function receivedAuthentication(event) {
     var passThroughParam = event.optin.ref;
 
     console.log("Received authentication for user %d and page %d with pass " +
-      "through param '%s' at %d", senderID, recipientID, passThroughParam,
+      "through param '%s' at %d", senderID, recipientID, passThroughParam, 
       timeOfAuth);
 
     // When an authentication is received, we'll send a message back to the sender
@@ -236,12 +219,13 @@ function receivedAuthentication(event) {
     sendTextMessage(senderID, "Authentication successful");
 }
 
+
 /*
  * Message Event
  *
  * This event is called when a message is sent to your page. The 'message' 
  * object format can vary depending on the kind of message that was received.
- * Read more at https://developers.facebook.com/docs/messenger-platform/webhook-reference/message-received
+ * Read more at https://developers.facebook.com/docs/messenger-platform/webhook-reference#received_message
  *
  * For this example, we're going to echo any text that we get. If we get some 
  * special keywords ('button', 'generic', 'receipt'), then we'll send back
@@ -256,32 +240,37 @@ function receivedMessage(event) {
     var timeOfMessage = event.timestamp;
     var message = event.message;
 
-
-    var isEcho = message.is_echo;
     var messageId = message.mid;
-    var appId = message.app_id;
-    var metadata = message.metadata;
 
     // You may get a text or attachment but not both
     var messageText = message.text;
     var messageAttachments = message.attachments;
-    var quickReply = message.quick_reply;
 
-    if (isEcho) {
-        return;
-    } else if (quickReply) {
-        var quickReplyPayload = quickReply.payload;
 
-        sendTextMessage(senderID, "Quick reply tapped");
-        return;
-    }
+    if (messageText) {  
 
-    if (messageText) {
-
-        checkstatus(senderID, messageText, "text", "");
-
+        checkstatus(senderID,messageText,"text","","","","");   
+        // If we receive a text message, check to see if it matches any special
+        // keywords and send back the corresponding example. Otherwise, just echo
+        // the text we received.
+        //    switch (messageText) {  
+        //      case 'receipt':
+        //        sendReceiptMessage(senderID);
+        //        break;
+        //      default:
+        //        sendTextMessage(senderID, messageText);
+        //    }
     } else if (messageAttachments) {
-        checkstatus(senderID, "file", messageAttachments[0].type, messageAttachments);
+  
+        if(messageAttachments[0].type!="image")
+        { 
+            checkstatus(senderID,"file",messageAttachments[0].type,messageAttachments,"","","");
+        }
+        else{
+            checkstatus(senderID, "file", messageAttachments[0].type, messageAttachments, "", "", "");
+        }
+        // sendTextMessage(senderID, "Message with attachment received");
+
     }
 }
 
@@ -290,7 +279,7 @@ function receivedMessage(event) {
  * Delivery Confirmation Event
  *
  * This event is sent to confirm the delivery of a message. Read more about 
- * these fields at https://developers.facebook.com/docs/messenger-platform/webhook-reference/message-delivered
+ * these fields at https://developers.facebook.com/docs/messenger-platform/webhook-reference#message_delivery
  *
  */
 function receivedDeliveryConfirmation(event) {
@@ -299,22 +288,26 @@ function receivedDeliveryConfirmation(event) {
     var delivery = event.delivery;
     var messageIDs = delivery.mids;
     var watermark = delivery.watermark;
-    var sequenceNumber = delivery.seq;
+    var sequenceNumber = delivery.seq;               
 
     if (messageIDs) {
-        messageIDs.forEach(function (messageID) {
+        //    messageIDs.forEach(function(messageID) {
+        //      console.log("Received delivery confirmation for message ID: %s", 
+        //        messageID);
 
-        });
+        //           
+        //    });
     }
 
+    //console.log("All message before %d were delivered.", watermark);
 }
 
 
 /*
  * Postback Event
  *
- * This event is called when a postback is tapped on a Structured Message. 
- * https://developers.facebook.com/docs/messenger-platform/webhook-reference/postback-received
+ * This event is called when a postback is tapped on a Structured Message. Read
+ * more at https://developers.facebook.com/docs/messenger-platform/webhook-reference#postback
  * 
  */
 function receivedPostback(event) {
@@ -325,14 +318,80 @@ function receivedPostback(event) {
     // The 'payload' param is a developer-defined field which is set in a postback 
     // button for Structured Messages. 
     var payload = event.postback.payload;
+    if(payload=="Q1YES")
+    {           
+      
 
+        fb.api('/' + senderID + '', function (err, data) {            
+            if (data) {  
+                            
+                assignmission(senderID,data.first_name+" "+data.last_name,data.profile_pic,"Q1YES",recipientID); 
+            }
+        }); 
+     
+      
+    }
+    else if(payload=="Q1NO")
+    {
+        fb.api('/' + senderID + '', function (err, data) {            
+            if (data) {          
+                assignmission(senderID,data.first_name+" "+data.last_name,data.profile_pic,"Q1NO",recipientID);               
+            }
+        }); 
+    }  
+    else if(payload=="USER_DEFINED_PAYLOAD")
+    {
+      
+        var messageData = {
+            "attachment": {
+                "type": "template",
+                "payload": {
+                    "template_type": "generic",
+                    "elements": [{
+                        "title": "Nielsen Privacy and Consent Notice",
+                        "subtitle": "",
+                        "image_url": "",
+                        "buttons": [{
+                            "type": "web_url",
+                            "url": "https://self-sourcing-bot.herokuapp.com/",
+                            "title": "View Nielsen Privacy"                          
+                        }, {
+                            "type": "postback",
+                            "title": "Agree",
+                            "payload": "Agree"
+                        },
+                         {
+                             "type": "postback",
+                             "title": "Disagree",
+                             "payload": "Disagree"
+                         }]
+                    }]
+                }
+            }
+        };
+   
+        sendGenericMessage(senderID, messageData);
+    
+      
+        //fb.api('/' + senderID + '', function (err, data) {
+        //    if (data) {
 
+        //        assignmission(senderID, data.first_name + " " + data.last_name, data.profile_pic, "REG_USERS", recipientID);
+        //    }
+        //});
 
-    // When a postback is called, we'll send a message back to the sender to 
-    // let them know it was successful
-    if (payload == "USER_DEFINED_PAYLOAD") {
+    
+      
+    }
+    else if(payload=="Agree")
+    {
+        fb.api('/' + senderID + '', function (err, data) {
+            if (data) {
 
-        //writelog(id, "Select Your Language", "BOT");
+                assignmission(senderID, data.first_name + " " + data.last_name, data.profile_pic, "REG_USERS", recipientID);
+            }
+        });
+
         var messageData = {
             recipient: {
                 id: senderID
@@ -347,102 +406,140 @@ function receivedPostback(event) {
                             "subtitle": "",
                             "buttons": [{
                                 "type": "postback",
-                                "title": "Melayu",
-                                "payload": "Melayu"
-                            }, {
-                                "type": "postback",
-                                "title": "普通话",
-                                "payload": "Mandarin"
-                            }, {
-                                "type": "postback",
                                 "title": "English",
                                 "payload": "English"
-                            }
-
-                            ]
+                            }, {
+                                "type": "postback",
+                                "title": "Tamil",
+                                "payload": "Tamil"
+                            }, {
+                                "type": "postback",
+                                "title": "Telugu",
+                                "payload": "Telugu"
+                            },{
+                                "type": "postback",
+                                "title": "Bangla",
+                                "payload": "Bangla"
+                            },{
+                                "type": "postback",
+                                "title": "Marathi",
+                                "payload": "Marathi"
+                            },{
+                                "type": "postback",
+                                "title": "Hindi",
+                                "payload": "Hindi"
+                            }]
                         }]
                     }
                 }
             }
         };
         callSendAPI(messageData);
-       
     }
-    else if (payload == "Melayu") {
-        checkstatus(senderID, "Melayu_lang", "text", "");
-        // writelog(id, "Adakah anda membeli mana-mana Rokok minggu ini?", "BOT");
+    else if(payload=="English")
+    {
+        assignmission(senderID, data.first_name + " " + data.last_name, data.profile_pic, "REG_USERS_Lang", "English");
     }
-    else if (payload == "Mandarin") {
-        checkstatus(senderID, "Mandarin_lang", "text", "");
-        // writelog(id, "你本周购买了任何香烟吗？", "BOT");
+    else if(payload=="Tamil")
+    {
+        assignmission(senderID, data.first_name + " " + data.last_name, data.profile_pic, "REG_USERS_Lang", "Tamil");
     }
-    else if (payload == "English") {
-        checkstatus(senderID, "English_lang", "text", "");
-        // writelog(id, "Have you purchased any Cigarettes this week?", "BOT");
+    else if(payload=="Bangla")
+    {
+        assignmission(senderID, data.first_name + " " + data.last_name, data.profile_pic, "REG_USERS_Lang", "Bangla");
     }
-    else if (payload == "Purchased_YES") {
-        checkstatus(senderID, "Purchased_YES", "text", "");
+    else if(payload=="Marathi")
+    {
+        assignmission(senderID, data.first_name + " " + data.last_name, data.profile_pic, "REG_USERS_Lang", "Marathi");
     }
-    else if (payload == "Purchased_NO") {
-        checkstatus(senderID, "Purchased_NO", "text", "");
+    else if(payload=="Hindi")
+    {
+        assignmission(senderID, data.first_name + " " + data.last_name, data.profile_pic, "REG_USERS_Lang", "Hindi");
     }
-    else if (payload == "Invoices_YES") {
-        checkstatus(senderID, "Invoices_YES", "text", "");
+    else if(payload=="Disagree")
+    {
+        sendTextMessage(senderID,"Thank You!");
     }
-    else if (payload == "Invoices_NO") {
-        checkstatus(senderID, "Invoices_NO", "text", "");
+    else if (payload == "Q4NO") {
+
+        checkstatus(senderID, "Q4NO", "text", "");
     }
-    else if (payload == "NOInvoices_YES") {
-        checkstatus(senderID, "NOInvoices_YES", "text", "");
+    else if (payload == "Visi_More_YES") {
+
+        checkstatus(senderID, "Visi_More_YES", "text", "");
     }
-    else if (payload == "NOInvoices_NO") {
-        checkstatus(senderID, "NOInvoices_NO", "text", "");
+    else if (payload == "Visi_More_No")
+    {
+        checkstatus(senderID, "Visi_More_No", "text", "");
     }
+
+    else if (payload == "Window_More_YES") {
+
+        checkstatus(senderID, "Window_More_YES", "text", "");
+    }
+    else if (payload == "Window_More_No") {
+        checkstatus(senderID, "Window_More_No", "text", "");
+    }
+    else if (payload == "confirm_next_count_fail_yes") {
+        checkstatus(senderID, "confirm_next_count_fail_yes", "text", "");
+    }
+    else if (payload == "confirm_next_count_fail_no") {
+        checkstatus(senderID, "confirm_next_count_fail_no", "text", "");
+    }
+    else if (payload == "confirm_window_count_fail_yes") {
+        checkstatus(senderID, "confirm_window_count_fail_yes", "text", "");
+    }
+    else if (payload == "confirm_window_count_fail_no") {
+        checkstatus(senderID, "confirm_window_count_fail_no", "text", "");
+    }
+    else if (payload == "Q4YES") {
+
+        checkstatus(senderID, "Q4YES", "text", "");
+    }
+    else if (payload == "Q7NO") {
+
+        checkstatus(senderID, "Q7NO", "text", "");
+    }
+    else if (payload == "Q7YES") {
+
+        checkstatus(senderID, "Q7YES", "text", "");
+    }
+    else if (payload == "Q8NO") {
+
+        checkstatus(senderID, "Q8NO", "text", "");
+    }
+    else if (payload == "Q8YES") {
+
+        checkstatus(senderID, "Q8YES", "text", "");
+    }
+
+    // When a postback is called, we'll send a message back to the sender to 
+    // let them know it was successful
 
 }
-
-
-
 
 
 /*
- * Message Read Event
+ * Send a message with an using the Send API.
  *
- * This event is called when a previously-sent message has been read.
- * https://developers.facebook.com/docs/messenger-platform/webhook-reference/message-read
- * 
  */
-function receivedMessageRead(event) {
-    var senderID = event.sender.id;
-    var recipientID = event.recipient.id;
+function sendImageMessage(recipientId) {
+    var messageData = {
+        recipient: {
+            id: recipientId
+        },
+        message: {
+            attachment: {
+                type: "image",
+                payload: {
+                    url: "http://i.imgur.com/zYIlgBl.png"
+                }
+            }
+        }
+    };
 
-    // All messages before watermark (a timestamp) or sequence have been seen.
-    var watermark = event.read.watermark;
-    var sequenceNumber = event.read.seq;
-
-    //  console.log("Received message read event for watermark %d and sequence " +
-    //    "number %d", watermark, sequenceNumber);
+    callSendAPI(messageData);
 }
-
-/*
- * Account Link Event
- *
- * This event is called when the Link Account or UnLink Account action has been
- * tapped.
- * https://developers.facebook.com/docs/messenger-platform/webhook-reference/account-linking
- * 
- */
-function receivedAccountLink(event) {
-    var senderID = event.sender.id;
-    var recipientID = event.recipient.id;
-
-    var status = event.account_linking.status;
-    var authCode = event.account_linking.authorization_code;
-
-    console.log("Received account link event with for user %d with status %s " +
-      "and auth code %s ", senderID, status, authCode);
-}
-
 
 /*
  * Send a text message using the Send API.
@@ -454,645 +551,47 @@ function sendTextMessage(recipientId, messageText) {
             id: recipientId
         },
         message: {
-            text: messageText,
-            metadata: "DEVELOPER_DEFINED_METADATA"
+            text: messageText
         }
     };
 
     callSendAPI(messageData);
 }
-
-//TranslatetoMandarin
-function TranslatetoMandarin(p1, p2, p3, p4, callback) {
-    request.post({
-        //  "rejectUnauthorized": false,
-        url: "https://www.googleapis.com/language/translate/v2",
-        headers: { "X-HTTP-Method-Override": "GET" },
-        form: {
-            key: "AIzaSyCwayqygqF9p-4KBf_bP1LM1haaC-cPt_4",
-            target: "zh-CN",
-            q: "q1=" + p1 + ""
-        }
-    }, function (error, response, data) {
-        if (!error && response.statusCode == 200) {
-            // console.log(data);
-            var items = JSON.parse(data);
-            callback(items.data.translations[0].translatedText.split('=')[1]);
-        } else {
-            console.log("something went wrong" + error)
-        }
-    });
-
-}
-
-//TranslatetoMalay
-function TranslatetoMalay(p1, p2, p3, p4, callback) {
-    request.post({
-        //  "rejectUnauthorized": false,
-        url: "https://www.googleapis.com/language/translate/v2",
-        headers: { "X-HTTP-Method-Override": "GET" },
-        form: {
-            key: "AIzaSyCwayqygqF9p-4KBf_bP1LM1haaC-cPt_4",
-            target: "ms",
-            q: "q1=" + p1 + ""
-        }
-    }, function (error, response, data) {
-        if (!error && response.statusCode == 200) {
-            // console.log(data);
-            var items = JSON.parse(data);
-            callback(items.data.translations[0].translatedText.split('=')[1]);
-        } else {
-            console.log("something went wrong" + error)
-        }
-    });
-
-}
-
-
-function sendwebview(id, lang) {
-    var title = "Submit Your Products";
-    var btntitle = "Add Items";
-    if (lang == "Melayu") {
-        sendTextMessage(id, "Sila nyatakan jenama rokok yang telah anda beli dengan saiz pek & kuantiti (unit) ");
-        writelog(id, "Sila nyatakan jenama rokok yang telah anda beli dengan saiz pek & kuantiti (unit) ", "BOT")
-        btntitle = "Tambah";
-        title = "Hantar Produk Anda";
-    }
-    else if (lang == "Mandarin") {
-        sendTextMessage(id, "请提供您所有购买香烟品牌的包装大小和数量（单位");
-        title = "提交您的产品";
-        btntitle = "加";
-        writelog(id, "请提供您所有购买香烟品牌的包装大小和数量（单位", "BOT")
-    }
-    else {
-        sendTextMessage(id, "Please provide all the cigarette brands  you bought with their pack size & quantity(units).");
-        writelog(id, "Please provide all the cigarette brands  you bought with their pack size & quantity(units).", "BOT")
-    }
-    var url = "https://malayispurchasebot.herokuapp.com?id=" + id + "&lang=" + lang + "";
-    var messageData = {
-        "recipient": {
-            "id": id
-        },
-        "message": {
-            "attachment": {
-                "payload": {
-                    "elements": [{
-                        "buttons": [{
-                            "title": btntitle,
-                            "type": "web_url",
-                            "url": url,
-                            "messenger_extensions": true,
-                            "webview_height_ratio": "tall"
-                        }],
-                        "subtitle": "",
-                        "title": title
-                    }],
-                    "template_type": "generic"
-                },
-                "type": "template"
-            }
-        }
-    };
-
-    callSendAPI(messageData);
-
-
-}
-
-
-//write logfile
-
-//write logfile
-function writelog(sid, message, sendertype) {
-
-
-    var http = require('http');
-    var rid = "244341495958818";
-    var logdetails = JSON.stringify({
-        'sid': '' + sid + '',
-        'sendertype': '' + sendertype + '',
-        'message': '' + message + '',
-        'rid': '' + rid + ''
-    });
-
-
-    //5
-    var extServeroptionspost = {
-        host: '202.89.107.58',
-        port: '80',
-        path: '/BOTAPI/api/writemologpurchase',
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Content-Length': logdetails.length
-        }
-    };
-
-
-
-    //6
-    var reqPost = http.request(extServeroptionspost, function (res) {
-        res.on('data', function (data) {
-            process.stdout.write(data);
-            var status = data.toString("utf8").replace('"', '').replace('"', '');
-            console.log(status);
-        });
-    });
-
-
-    // 7
-    reqPost.write(logdetails);
-    reqPost.end();
-    reqPost.on('error', function (e) {
-        console.error(e);
-    });
-
-}
-
-/*check status of mission*/
-
-function checkstatus(id, text, type, files) {
-
-    if (text == "webview123") {
-        sendwebview(id);
-        return false;
-    }
-    var filetype = "";
-    var url = "";
-    if (type == "text") {
-        if (text.indexOf("latitude=") > -1) {
-            url = getParamValuesByName('latitude', text) + "&" + getParamValuesByName('longitude', text);
-            filetype = "location";
-        }
-        else {
-            filetype = type;
-        }
-    }
-    else {
-        filetype = type;
-        if (type == "image" || type == "audio") {
-            sendTextMessage(id, "Please wait....");
-            url = files[0].payload.url;
-        }
-        else if (type == "location") {
-            var lat = files[0].payload.coordinates.lat;
-            var longitude = files[0].payload.coordinates.long;
-            url = lat + "&" + longitude;
-        }
-
-    }
-
-    fb.api('/' + id + '', function (err, data) {
-        if (data) {
-            //SD
-            var http = require('http');
-            var SD = JSON.stringify({
-                'uid': '' + id + '',
-                'uname': '' + data.first_name + " " + data.last_name + '',
-                'purl': '' + data.profile_pic + '',
-                'text': '' + text + '',
-                'type': '' + filetype + '',
-                'url': '' + url + ''
-            });
-
-
-            //5
-            var extServeroptionspost = {
-                host: '202.89.107.58',
-                port: '80',
-                path: '/BOTAPI/api/Malayisbot_Purchase',
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Content-Length': SD.length
-                }
-            };
-
-            var reqPost = http.request(extServeroptionspost, function (res) {
-                res.setEncoding('utf8');
-                var jsbody = "";
-                res.on('data', function (resData) {
-                    jsbody += resData;
-                });
-                res.on('end', function () {
-                    var jsstr = jsbody.substring(1, jsbody.length - 1).replace(/\\"/g, '"');
-                    var jsonres = JSON.parse(jsstr);
-                    console.log(jsstr);
-                    if (jsonres.status == "New") {
-                        var messageData = {
-                            recipient: {
-                                id: id
-                            },
-                            "message": {
-                                "attachment": {
-                                    "type": "template",
-                                    "payload": {
-                                        "template_type": "generic",
-                                        "elements": [{
-                                            "title": "Select Your Language",
-                                            "subtitle": "",
-                                            "buttons": [{
-                                                "type": "postback",
-                                                "title": "Melayu",
-                                                "payload": "Melayu"
-                                            }, {
-                                                "type": "postback",
-                                                "title": "普通话",
-                                                "payload": "Mandarin"
-                                            }, {
-                                                "type": "postback",
-                                                "title": "English",
-                                                "payload": "English"
-                                            }
-
-                                            ]
-                                        }]
-                                    }
-                                }
-                            }
-                        };
-
-                        callSendAPI(messageData);
-                        writelog(id, "Select Your Language", "BOT");
-                    }
-                    else if (jsonres.status == "Melayu_lang") {
-
-                        Q1(id, "Adakah anda membeli mana-mana Rokok minggu ini?", "Ya", "Tiada");
-
-
-                    }
-                    else if (jsonres.status == "Mandarin_lang") {
-                        Q1(id, "你本周购买了任何香烟吗？", "是", "没有");
-
-                    }
-                    else if (jsonres.status == "English_lang") {
-                        Q1(id, "Have you purchased any Cigarettes this week?", "Yes", "No");
-
-
-                    }
-
-
-                    else if (jsonres.status == "Purchased_YES") {
-                        if (jsonres.message[0].lang == "Melayu") {
-                            Q2(id, "Adakah anda mempunyai invois rokok tersebut?", "Ya", "Tiada");
-                            writelog(id, "Adakah anda mempunyai invois rokok tersebut?", "BOT");
-
-                        }
-                        else if (jsonres.message[0].lang == "Mandarin") {
-                            Q2(id, "你有本周购买的香烟的发票吗？", "是", "没有");
-                            writelog(id, "你有本周购买的香烟的发票吗？", "BOT");
-                        }
-                        else {
-                            Q2(id, "Do you have invoices for cigarettes purchased this week?", "Yes", "No");
-                            writelog(id, "Do you have invoices for cigarettes purchased this week?", "BOT");
-                        }
-                    }
-                    else if (jsonres.status == "Location_details") {
-                        if (jsonres.message[0].lang == "Melayu") {
-
-                            sendTextMessage(id, "Sila kongsikan lokasi anda.");
-                            writelog(id, "Sila kongsikan lokasi anda.", "BOT");
-                        }
-                        else if (jsonres.message[0].lang == "Mandarin") {
-                            sendTextMessage(id, "请分享您的位置。");
-                            writelog(id, "请分享您的位置。", "BOT");
-                        }
-                        else {
-                            sendTextMessage(id, "Please share your location.");
-                            writelog(id, "Please share your location.", "BOT");
-                        }
-                    }
-                    else if (jsonres.status == "Purchased_NO" || jsonres.status == "Completed") {
-                        if (jsonres.message[0].lang == "Melayu") {
-                            sendTextMessage(id, "Terima kasih (selesai)");
-                            writelog(id, "Terima kasih (selesai)", "BOT");
-                        }
-                        else if (jsonres.message[0].lang == "Mandarin") {
-                            sendTextMessage(id, "谢谢（完毕）");
-                            writelog(id, "谢谢（完毕）", "BOT");
-                        }
-                        else {
-                            sendTextMessage(id, "Thank you (complete)");
-                            writelog(id, "Thank you (complete)", "BOT");
-                        }
-
-                    }
-                    else if (jsonres.status == "Invoices_YES") {
-                        if (jsonres.message[0].lang == "Melayu") {
-                            sendTextMessage(id, "Berapa banyak invois yang anda ada untuk rokok yang telah dibeli minggu ini?");
-                            writelog(id, "Berapa banyak invois yang anda ada untuk rokok yang telah dibeli minggu ini?", "BOT");
-                        }
-                        else if (jsonres.message[0].lang == "Mandarin") {
-                            sendTextMessage(id, "您本周购买了多少张香烟的发票？");
-                            writelog(id, "您本周购买了多少张香烟的发票？", "BOT");
-                        }
-                        else {
-                            sendTextMessage(id, "How many invoices do you have for cigarettes purchased this week?");
-                            writelog(id, "How many invoices do you have for cigarettes purchased this week?", "BOT");
-                        }
-
-                    }
-                    else if (jsonres.status == "Invoices_NO") {
-                        sendwebview(id, jsonres.message[0].lang);
-                    }
-                    else if (jsonres.status == "Q5") {
-
-                        if (jsonres.message[0].lang == "Melayu") {
-                            Q5(id, "Didalam pembelian tersebut, adakah diantaranya tiada invois?", "Ya", "Tiada");
-                            writelog(id, "Didalam pembelian tersebut, adakah diantaranya tiada invois?", "BOT");
-                        }
-                        else if (jsonres.message[0].lang == "Mandarin") {
-                            Q5(id, "你是否购买了本周没有发票的香烟？", "是", "没有");
-                            writelog(id, "你是否购买了本周没有发票的香烟？", "BOT");
-                        }
-                        else {
-                            Q5(id, "Did you purchase any cigarettes this week for which you do not have the invoice?", "Yes", "No");
-                            writelog(id, "Did you purchase any cigarettes this week for which you do not have the invoice?", "BOT");
-                        }
-
-                    }
-
-                    else if (jsonres.status == "Loopitems") {
-
-                        if (jsonres.message[0].lang == "Melayu") {
-                            sendTextMessage(id, "Sila ambil gambar invois dan hantar.");
-                            writelog(id, "Sila ambil gambar invois dan hantar.", "BOT");
-                        }
-                        else if (jsonres.message[0].lang == "Mandarin") {
-                            sendTextMessage(id, "请拍下发票的照片并发送");
-                            writelog(id, "请拍下发票的照片并发送", "BOT");
-                        }
-                        else {
-                            sendTextMessage(id, "Please take a photo of the invoice and send it.");
-                            writelog(id, "Please take a photo of the invoice and send it.", "BOT");
-                        }
-
-                    }
-                    else if (jsonres.status == "number_exception") {
-                        if (jsonres.message[0].lang == "Melayu") {
-                            sendTextMessage(id, "Sila masukkan nombor yang sah ..");
-
-                        }
-                        else if (jsonres.message[0].lang == "Mandarin") {
-                            sendTextMessage(id, "请输入有效的数字..");
-
-                        }
-                        else {
-                            sendTextMessage(id, "Please enter a valid number..");
-                        }
-
-                    }
-                    else if (jsonres.status == "Q6") {
-                        sendwebview(id, jsonres.message[0].lang);
-                    }
-                    else if (jsonres.status == "Q3_count") {
-                        sendTextMessage(id, "How many invoices do you have for cigarettes purchased this week?");
-                        writelog(id, "How many invoices do you have for cigarettes purchased this week?", "BOT");
-                    }
-                    else if (jsonres.status == "NextTask") {
-                        if (jsonres.message[0].lang == "Melayu") {
-                            sendTextMessage(id, "Sila ikut arahan di atas ..");
-
-                        }
-                        else if (jsonres.message[0].lang == "Mandarin") {
-                            sendTextMessage(id, "请按照上述说明进行");
-
-                        }
-                        else {
-                            sendTextMessage(id, "Please follow above instructions..");
-                        }
-                    }
-                    else {
-                        sendTextMessage(id, jsonres.status);
-                    }
-
-                });
-            });
-
-            // 7 
-            reqPost.write(SD);
-            reqPost.end();
-            reqPost.on('error', function (e) {
-                console.error(e);
-            });
-        }
-    });
-
-}
-
-function Q1(id, title, yesmesg, no_mesg) {
-    var messageData = {
-        recipient: {
-            id: id
-        },
-        "message": {
-            "attachment": {
-                "type": "template",
-                "payload": {
-                    "template_type": "generic",
-                    "elements": [
-                      {
-                          "title": title,
-                          "buttons": [
-                            {
-                                "type": "postback",
-                                "title": yesmesg,
-                                "payload": "Purchased_YES"
-                            },
-                            {
-                                "type": "postback",
-                                "title": no_mesg,
-                                "payload": "Purchased_NO"
-                            }
-                          ]
-                      }
-                    ]
-                }
-            }
-        }
-    };
-    callSendAPI(messageData);
-}
-function Q2(id, title, yesmesg, no_mesg) {
-    var messageData = {
-        recipient: {
-            id: id
-        },
-        "message": {
-            "attachment": {
-                "type": "template",
-                "payload": {
-                    "template_type": "generic",
-                    "elements": [
-                      {
-                          "title": title,
-                          "buttons": [
-                            {
-                                "type": "postback",
-                                "title": yesmesg,
-                                "payload": "Invoices_YES"
-                            },
-                            {
-                                "type": "postback",
-                                "title": no_mesg,
-                                "payload": "Invoices_NO"
-                            }
-                          ]
-                      }
-                    ]
-                }
-            }
-        }
-    };
-    callSendAPI(messageData);
-}
-
-
-function Q5(id, title, yesmesg, no_mesg) {
-    var messageData = {
-        recipient: {
-            id: id
-        },
-        "message": {
-            "attachment": {
-                "type": "template",
-                "payload": {
-                    "template_type": "generic",
-                    "elements": [
-                      {
-                          "title": title,
-                          "buttons": [
-                            {
-                                "type": "postback",
-                                "title": yesmesg,
-                                "payload": "NOInvoices_YES"
-                            },
-                            {
-                                "type": "postback",
-                                "title": no_mesg,
-                                "payload": "NOInvoices_NO"
-                            }
-                          ]
-                      }
-                    ]
-                }
-            }
-        }
-    };
-    callSendAPI(messageData);
-}
-
 /*
- * Send a message with Quick Reply buttons.
+ * Send a text message using the Send API.
  *
  */
-function sendQuickReply(recipientId) {
+function sendTextMessagewithlog(recipientId, messageText) {
+
     var messageData = {
         recipient: {
             id: recipientId
         },
         message: {
-            text: "What's your favorite movie genre?",
-            quick_replies: [
-              {
-                  "content_type": "text",
-                  "title": "Action",
-                  "payload": "DEVELOPER_DEFINED_PAYLOAD_FOR_PICKING_ACTION"
-              },
-              {
-                  "content_type": "text",
-                  "title": "Comedy",
-                  "payload": "DEVELOPER_DEFINED_PAYLOAD_FOR_PICKING_COMEDY"
-              },
-              {
-                  "content_type": "text",
-                  "title": "Drama",
-                  "payload": "DEVELOPER_DEFINED_PAYLOAD_FOR_PICKING_DRAMA"
-              }
-            ]
+            text: messageText
         }
     };
 
     callSendAPI(messageData);
 }
 
+
 /*
- * Send a read receipt to indicate the message has been read
+ * Send a Structured Message (Generic Message type) using the Send API.
  *
  */
-function sendReadReceipt(recipientId) {
-    console.log("Sending a read receipt to mark message as seen");
+function sendGenericMessage(recipientId,MessageTemplate) {
 
     var messageData = {
         recipient: {
             id: recipientId
         },
-        sender_action: "mark_seen"
-    };
+        message: MessageTemplate
+    };  
 
     callSendAPI(messageData);
 }
 
-/*
- * Turn typing indicator on
- *
- */
-function sendTypingOn(recipientId) {
-    console.log("Turning typing indicator on");
-
-    var messageData = {
-        recipient: {
-            id: recipientId
-        },
-        sender_action: "typing_on"
-    };
-
-    callSendAPI(messageData);
-}
-
-/*
- * Turn typing indicator off
- *
- */
-function sendTypingOff(recipientId) {
-    console.log("Turning typing indicator off");
-
-    var messageData = {
-        recipient: {
-            id: recipientId
-        },
-        sender_action: "typing_off"
-    };
-
-    callSendAPI(messageData);
-}
-
-/*
- * Send a message with the account linking call-to-action
- *
- */
-function sendAccountLinking(recipientId) {
-    var messageData = {
-        recipient: {
-            id: recipientId
-        },
-        message: {
-            attachment: {
-                type: "template",
-                payload: {
-                    template_type: "button",
-                    text: "Welcome. Link your account.",
-                    buttons: [{
-                        type: "account_link",
-                        url: SERVER_URL + "/authorize"
-                    }]
-                }
-            }
-        }
-    };
-
-    callSendAPI(messageData);
-}
 
 /*
  * Call the Send API. The message data goes in the body. If successful, we'll 
@@ -1111,24 +610,567 @@ function callSendAPI(messageData) {
             var recipientId = body.recipient_id;
             var messageId = body.message_id;
 
-            if (messageId) {
-                // console.log("Successfully sent message with id %s to recipient %s", 
-                //messageId, recipientId);
-            } else {
-                //console.log("Successfully called Send API for recipient %s", 
-                //recipientId);
-            }
         } else {
-            console.error("Failed calling Send API", response.statusCode, response.statusMessage, body.error);
+            console.error("Unable to send message.");
+            console.error(response);
+            console.error(error);
         }
+    });  
+}
+
+//write logfile
+function writelog(sid,message,sendertype)
+{
+
+
+    var http = require('http');
+    var rid="244341495958818";
+    var logdetails = JSON.stringify({       
+        'sid': '' + sid + '',
+        'sendertype': '' + sendertype + '',
+        'message': '' + message + '',
+        'rid': ''+rid+''        
+    });
+
+
+    //5
+    var extServeroptionspost = {
+        host: '202.89.107.58',
+        port: '80',
+        path: '/BOTAPI/api/writelogself',
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': logdetails.length
+        }
+    };
+
+
+
+    //6
+    var reqPost = http.request(extServeroptionspost, function (res) {      
+        res.on('data', function (data) {
+            process.stdout.write(data);    
+            var status=data.toString("utf8").replace('"', '').replace('"', '');
+            console.log(status);                 
+        });
+    });
+
+
+    // 7
+    reqPost.write(logdetails);
+    reqPost.end();
+    reqPost.on('error', function (e) {
+        console.error(e);
+    });
+
+}
+
+//assigning mission
+function assignmission(id,name,picurl,Status,recipientID)
+{
+
+    var http = require('http');
+    var Userdetails = JSON.stringify({       
+        'UID': '' + id + '',
+        'Name': '' + name + '',
+        'URL': '' + picurl + '',
+        'recipientID': '' + recipientID + '',
+        'Status': '' + Status + ''
+    });
+
+
+    //5
+    var extServeroptionspost = {
+        host: '202.89.107.58',
+        port: '80',
+        path: '/BOTAPI/api/Initselfsourcebot',
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': Userdetails.length
+        }
+    };
+
+
+
+    //6
+    var reqPost = http.request(extServeroptionspost, function (res) {      
+        res.on('data', function (data) {
+            process.stdout.write(data);    
+            var status=data.toString("utf8").replace('"', '').replace('"', '');
+            var lang="English";
+            if(status.indexOf("#")== -1)
+            {
+                lang=status.split('#')[1];
+                status=status.split('#')[0];                
+            }
+            
+            if(status=="Q4")
+            {
+                var messageData = {
+                    "attachment": {
+                        "type": "template",
+                        "payload": {
+                            "template_type": "generic",
+                            "elements": [{
+                                "title": "Do you have any company specific area/window like above?",
+                                "subtitle": "",
+                                "image_url": "https://self-sourcing-bot.herokuapp.com/display.jpg",
+                                "buttons": [{
+                                    "type": "postback",
+                                    "title": "Yes",
+                                    "payload": "Q4YES"
+                                }, {
+                                    "type": "postback",
+                                    "title": "No",
+                                    "payload": "Q4NO"
+                                }]
+                            }]
+                        }
+                    }
+                };
+                sendGenericMessage(id,messageData); 
+
+            }
+
+            else if (status == "Q2") {
+                sendTextMessagewithlog(id, "Please write the count of Visi cooler(like above)?");
+            }
+            else if(status=="REG_USERS"){
+                if(lang=="Telugu")
+                    sendTextMessage(id, "శుభోదయం");
+                else
+                    sendTextMessage(id,"Good Morning!!!");
+
+                var messageData = {
+                    "attachment": {
+                        "type": "template",
+                        "payload": {
+                            "template_type": "generic",
+                            "elements": [{
+                                "title": "Do you have any visicooler/fridge/chiller like above?",
+                                "subtitle": "",
+                                "image_url": "https://self-sourcing-bot.herokuapp.com/refridge.jpg",
+                                "buttons": [{
+                                    "type": "postback",
+                                    "title": "Yes",
+                                    "payload": "Q1YES"
+                                }, {
+                                    "type": "postback",
+                                    "title": "No",
+                                    "payload": "Q1NO"
+                                }]
+                            }]
+                        }
+                    }
+                };
+                setTimeout(function () {
+                    sendGenericMessage(id, messageData);
+                    writelog(id, "Do you have any visicooler/fridge/chiller like above?", "BOT");
+                }, 300);
+            }
+            console.log(status);                 
+        });
+    });
+
+
+    // 7
+    reqPost.write(Userdetails);
+    reqPost.end();
+    reqPost.on('error', function (e) {
+        console.error(e);
     });
 }
 
 
-//query string
+
+function checkstatus(id,text,type,files,imgtext,logo,labels)
+{
+    var filetype="";
+    var url="";
+    if(type=="text")
+    {
+        if (text.indexOf("latitude=")>-1) {   
+            url=getParamValuesByName('latitude', text)+"&"+getParamValuesByName('longitude', text);                      
+            filetype="location";
+        } 
+        else{                   
+            filetype=type;
+        }
+    }
+    else
+    {
+        filetype=type;
+        if(type=="image"||type=="audio")
+        {
+            url=files[0].payload.url;
+        }
+        else if(type=="location")
+        {
+            var lat= files[0].payload.coordinates.lat;
+            var longitude=files[0].payload.coordinates.long;
+            url=lat+"&"+longitude;
+        }                 
+
+    }
+
+    fb.api('/' + id + '', function (err, data) {            
+        if (data) {                    
+            //  assignmission(senderID,data.first_name+" "+data.last_name,data.profile_pic,"Q1YES");   
+                    
+            //SD
+            var http = require('http');
+            var SD = JSON.stringify({       
+                'uid': '' + id + '', 
+                'uname': '' + data.first_name+" "+data.last_name + '',    
+                'purl': '' + data.profile_pic + '',   
+                'text': '' + text + '',
+                'type': '' + filetype + '',        
+                'url': '' + url + ''        
+            });
+
+
+            //5
+            var extServeroptionspost = {
+                host: '202.89.107.58',
+                port: '80',
+                path: '/BOTAPI/api/selfsource',
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Content-Length': SD.length
+                }
+            };
+
+            var reqPost = http.request(extServeroptionspost, function (res) {      
+                res.on('data', function (data) {
+                    var status=data.toString("utf8").replace('"', '').replace('"', ''); 
+                    console.log("mission status = "+status);
+                    if(status=="New" || status=="Q1")
+                    {
+                        sendTextMessage(id, "Good Morning!!!");
+
+                        var messageData = {
+                            "attachment": {
+                                "type": "template",
+                                "payload": {
+                                    "template_type": "generic",
+                                    "elements": [{
+                                        "title": "Do you have any visicooler/fridge/chiller like above?",
+                                        "subtitle": "",
+                                        "image_url": "https://self-sourcing-bot.herokuapp.com/refridge.jpg",
+                                        "buttons": [{
+                                            "type": "postback",
+                                            "title": "Yes",
+                                            "payload": "Q1YES"
+                                        }, {
+                                            "type": "postback",
+                                            "title": "No",
+                                            "payload": "Q1NO"
+                                        }]
+                                    }]
+                                }
+                            }
+                        };
+                        setTimeout(function () {
+                            sendGenericMessage(id, messageData);
+                            writelog(id, "Do you have any visicooler/fridge/chiller like above?", "BOT");
+                        }, 200);
+                    }
+                    else if(status=="Q2"){ 
+                        sendTextMessagewithlog(id, "Please write the count of Visi cooler(like above)?");
+                    } 
+                    else if(status=="Q4")
+                    {
+                        var messageData = {
+                            "attachment": {
+                                "type": "template",
+                                "payload": {
+                                    "template_type": "generic",
+                                    "elements": [{
+                                        "title": "Do you have any company specific area/window/shelf display.",
+                                        "subtitle": "",
+                                        "image_url": "https://self-sourcing-bot.herokuapp.com/display.jpg",
+                                        "buttons": [{
+                                            "type": "postback",
+                                            "title": "Yes",
+                                            "payload": "Q4YES"
+                                        }, {
+                                            "type": "postback",
+                                            "title": "No",
+                                            "payload": "Q4NO"
+                                        }]
+                                    }]
+                                }
+                            }
+                        };
+                        sendGenericMessage(id,messageData); 
+
+                    }
+                    else if(status=="Q7_1")
+                    {
+                        var messageData = {
+                            "attachment": {
+                                "type": "template",
+                                "payload": {
+                                    "template_type": "generic",
+                                    "elements": [{
+                                        "title": "What is the purchase price of above item (200 ml Glass Bottle)",
+                                        "image_url": "https://self-sourcing-bot.herokuapp.com/coco.jpg",
+                                        "subtitle": ""
+                                    }]
+                                }
+                            }
+                        };
+                        sendGenericMessage(id, messageData);
+
+                    }
+                    else if(status=="Q4NO" || status=="Q7")
+                    {     
+                        var messageData = {
+                            "attachment": {
+                                "type": "template",
+                                "payload": {
+                                    "template_type": "generic",
+                                    "elements": [{
+                                        "title": "What is the selling price of above item (200 ml Glass Bottle)",
+                                        "image_url": "https://self-sourcing-bot.herokuapp.com/coco.jpg",
+                                        "subtitle": ""                    
+                                    }]
+                                }
+                            }
+                        };
+                        sendGenericMessage(id,messageData); 
+                    }
+                    else if(status=="Internal Server Error")
+                    {
+                        sendTextMessage(id, "Good Morning!!!");
+                        var messageData = {
+                            "attachment": {
+                                "type": "template",
+                                "payload": {
+                                    "template_type": "generic",
+                                    "elements": [{
+                                        "title": "Do you have any visicooler/fridge/chiller like above?",
+                                        "subtitle": "",
+                                        "image_url": "https://self-sourcing-bot.herokuapp.com/refridge.jpg",
+                                        "buttons": [{
+                                            "type": "postback",
+                                            "title": "Yes",
+                                            "payload": "Q1YES"
+                                        }, {
+                                            "type": "postback",
+                                            "title": "No",
+                                            "payload": "Q1NO"
+                                        }]
+                                    }]
+                                }
+                            }
+                        };
+                        setTimeout(function () {
+                            sendGenericMessage(id, messageData);
+                            writelog(id, "Do you have any visicooler/fridge/chiller like above?", "BOT");
+                        }, 300);
+
+                    }      
+     
+                    else if (status=="confirm_next")
+                    {       
+      
+                        var messageData = {
+                            "attachment": {
+                                "type": "template",
+                                "payload": {
+                                    "template_type": "generic",
+                                    "elements": [{
+                                        "title": "Do you have more images?",
+                                        "subtitle": "",
+                                        "buttons": [{
+                                            "type": "postback",
+                                            "title": "Yes",
+                                            "payload": "Visi_More_YES"
+                                        }, {
+                                            "type": "postback",
+                                            "title": "No",
+                                            "payload": "Visi_More_No"
+                                        }]
+                                    }]
+                                }
+                            }
+                        };
+                        sendGenericMessage(id, messageData);
+
+                    }
+                    else if (status == "confirm_next_window") {
+
+                        var messageData = {
+                            "attachment": {
+                                "type": "template",
+                                "payload": {
+                                    "template_type": "generic",
+                                    "elements": [{
+                                        "title": "Do you have more images?",
+                                        "subtitle": "",
+                                        "buttons": [{
+                                            "type": "postback",
+                                            "title": "Yes",
+                                            "payload": "Window_More_YES"
+                                        }, {
+                                            "type": "postback",
+                                            "title": "No",
+                                            "payload": "Window_More_No"
+                                        }]
+                                    }]
+                                }
+                            }
+                        };
+                        sendGenericMessage(id, messageData);
+
+                    }
+                    else if (status == "Invoice") {
+
+
+                        var messageData1 = {
+                            "attachment": {
+                                "type": "template",
+                                "payload": {
+                                    "template_type": "generic",
+                                    "elements": [{
+                                        "title": "Can you take picture of any Cold Drink bill/invoice of last 30 days like below?",
+                                        "subtitle": "",
+                                        "buttons": [{
+                                            "type": "postback",
+                                            "title": "Yes",
+                                            "payload": "Q8YES"
+                                        }, {
+                                            "type": "postback",
+                                            "title": "No",
+                                            "payload": "Q8NO"
+                                        }]
+                                    }]
+                                }
+                            }
+                        };
+                        sendGenericMessage(id, messageData1);
+
+
+                        var messageData = {
+                            recipient: {
+                                id: id
+                            },
+                            message: {
+                                attachment: {
+                                    type: "image",
+                                    payload: {
+                                        url: "https://self-sourcing-bot.herokuapp.com/invoice.jpg"
+                                    }
+                                }
+                            }
+                        };
+
+                        setTimeout(function () {
+                            callSendAPI(messageData);
+                        }, 200);   
+
+                    }
+                    else if (status == "Please take the pic of 1st visicooler with door open like below.") {
+                        sendTextMessagewithlog(id, status);
+                        setTimeout(function () {    
+                            var messageData = {
+                                "attachment": {
+                                    "type": "template",
+                                    "payload": {
+                                        "template_type": "generic",
+                                        "elements": [{
+                                            "title": "Sample visicooler",
+                                            "image_url": "https://self-sourcing-bot.herokuapp.com/Visi_Pic.jpg",
+                                            "subtitle": ""
+                                        }]
+                                    }
+                                }
+                            };
+                            sendGenericMessage(id, messageData);
+                        }, 200);
+                    }
+                    else if (status == "Q8Url") {
+
+                        sendTextMessagewithlog(id, "Please share the pic of any Cold Drink bill/invoice of last 30 days like above");
+
+                    }
+                    else if (status.indexOf('confirm_next_count_fail-') !== -1) {
+                        var messageData = {
+                            "attachment": {
+                                "type": "template",
+                                "payload": {
+                                    "template_type": "generic",
+                                    "elements": [{
+                                        "title": status.replace('confirm_next_count_fail-', ''),
+                                        "subtitle": "",
+                                        "buttons": [{
+                                            "type": "postback",
+                                            "title": "Yes",
+                                            "payload": "confirm_next_count_fail_yes"
+                                        }, {
+                                            "type": "postback",
+                                            "title": "No",
+                                            "payload": "confirm_next_count_fail_no"
+                                        }]
+                                    }]
+                                }
+                            }
+                        };
+                        sendGenericMessage(id, messageData);
+                    }
+
+                    else if (status.indexOf('confirm_window_count_fail-') !== -1) {
+                        var messageData = {
+                            "attachment": {
+                                "type": "template",
+                                "payload": {
+                                    "template_type": "generic",
+                                    "elements": [{
+                                        "title": status.replace('confirm_window_count_fail-', ''),
+                                        "subtitle": "",
+                                        "buttons": [{
+                                            "type": "postback",
+                                            "title": "Yes",
+                                            "payload": "confirm_window_count_fail_yes"
+                                        }, {
+                                            "type": "postback",
+                                            "title": "No",
+                                            "payload": "confirm_window_count_fail_no"
+                                        }]
+                                    }]
+                                }
+                            }
+                        };
+                        sendGenericMessage(id, messageData);
+                    }
+
+                    else {
+                        sendTextMessage(id, status);
+                    }
+
+       
+                });
+            });
+
+            // 7
+            reqPost.write(SD);
+            reqPost.end();
+            reqPost.on('error', function (e) {
+                console.error(e);
+            });
+        }
+    }); 
+
+}
+
+
 //read query string
-function getParamValuesByName(querystring, q) {
-    var qstring = q.slice(q.indexOf('?') + 1).split('&');
+function getParamValuesByName(querystring,q) {
+    var qstring =q.slice(q.indexOf('?') + 1).split('&');
     for (var i = 0; i < qstring.length; i++) {
         var urlparam = qstring[i].split('=');
         if (urlparam[0] == querystring) {
@@ -1136,10 +1178,13 @@ function getParamValuesByName(querystring, q) {
         }
     }
 }
+
+
+
 // Start server
 // Webhooks must be available via SSL with a certificate signed by a valid 
 // certificate authority.
-app.listen(app.get('port'), function () {
+app.listen(app.get('port'), function() {
     console.log('Node app is running on port', app.get('port'));
 });
 
