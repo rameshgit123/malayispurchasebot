@@ -392,49 +392,7 @@ function receivedPostback(event) {
             }
         });
 
-        var messageData = {
-            recipient: {
-                id: senderID
-            },
-            "message": {
-                "attachment": {
-                    "type": "template",
-                    "payload": {
-                        "template_type": "generic",
-                        "elements": [{
-                            "title": "Select Your Language",
-                            "subtitle": "",
-                            "buttons": [{
-                                "type": "postback",
-                                "title": "English",
-                                "payload": "English"
-                            }, {
-                                "type": "postback",
-                                "title": "Tamil",
-                                "payload": "Tamil"
-                            }, {
-                                "type": "postback",
-                                "title": "Telugu",
-                                "payload": "Telugu"
-                            },{
-                                "type": "postback",
-                                "title": "Bangla",
-                                "payload": "Bangla"
-                            },{
-                                "type": "postback",
-                                "title": "Marathi",
-                                "payload": "Marathi"
-                            },{
-                                "type": "postback",
-                                "title": "Hindi",
-                                "payload": "Hindi"
-                            }]
-                        }]
-                    }
-                }
-            }
-        };
-        callSendAPI(messageData);
+       
     }
     else if(payload=="English")
     {
@@ -704,6 +662,48 @@ function assignmission(id,name,picurl,Status,recipientID)
             {
                 lang=status.split('#')[1];
                 status=status.split('#')[0];                
+            }
+
+            if(status=="REG_USERS_S")
+            {
+                var messageData = {                  
+                        "attachment": {
+                            "type": "template",
+                            "payload": {
+                                "template_type": "generic",
+                                "elements": [{
+                                    "title": "Select Your Language",
+                                    "subtitle": "",
+                                    "buttons": [{
+                                        "type": "postback",
+                                        "title": "English",
+                                        "payload": "English"
+                                    }, {
+                                        "type": "postback",
+                                        "title": "Tamil",
+                                        "payload": "Tamil"
+                                    }, {
+                                        "type": "postback",
+                                        "title": "Telugu",
+                                        "payload": "Telugu"
+                                    },{
+                                        "type": "postback",
+                                        "title": "Bangla",
+                                        "payload": "Bangla"
+                                    },{
+                                        "type": "postback",
+                                        "title": "Marathi",
+                                        "payload": "Marathi"
+                                    },{
+                                        "type": "postback",
+                                        "title": "Hindi",
+                                        "payload": "Hindi"
+                                    }]
+                                }]
+                            }
+                        }                    
+                };
+                sendGenericMessage(id,messageData);
             }
             
             if(status=="Q4")
